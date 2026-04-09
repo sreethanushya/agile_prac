@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+    environment {
+        DOCKER_IMAGE = "thanushya/html-demo"
+    }
+    stages {
+        stage('Clone Code') {
+            steps {
+                // Added quotes around the URL
+                git branch: 'main', url: 'https://github.com/sreethanushya/agile_prac.git'
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                // Using ${} for safer variable interpolation
+                bat "docker build -t ${DOCKER_IMAGE} ."
+            }
+        }
+        stage('Push Image') {
+            steps {
+                // Fixed spelling: withCredentials
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', 
+                                 usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    bat "docker login -u %USER% -p %PASS%"
+                    bat "docker push ${DOCKER_IMAGE}"
+                }
+            }
+        }
+        stage('Deploy to Kubernetes') {
+            steps {
+                // Fixed spelling: withCredentials
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                    bat """
+                    set KUBECONFIG=%KUBECONFIG_FILE%
+                    kubectl apply -f deployment.yaml --validate=false
+                    """
+                }
+            }
+        }
+    }
+}
